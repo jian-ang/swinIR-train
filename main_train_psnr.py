@@ -3,6 +3,7 @@ import math
 import argparse
 import time
 import random
+from tqdm import tqdm, trange
 import numpy as np
 from collections import OrderedDict
 import logging
@@ -18,6 +19,8 @@ from utils.utils_dist import get_dist_info, init_dist
 from data.select_dataset import define_Dataset
 from models.select_model import define_Model
 
+from torch.utils.tensorboard import SummaryWriter
+import torchvision.transforms as transforms
 
 '''
 # --------------------------------------------
@@ -47,6 +50,7 @@ def main(json_path='options/train_msrresnet_psnr.json'):
 
     opt = option.parse(parser.parse_args().opt, is_train=True)
     opt['dist'] = parser.parse_args().dist
+    print(opt)
 
     # ----------------------------------------
     # distributed settings
@@ -54,10 +58,10 @@ def main(json_path='options/train_msrresnet_psnr.json'):
     if opt['dist']:
         init_dist('pytorch')
     opt['rank'], opt['world_size'] = get_dist_info()
-
+    
     if opt['rank'] == 0:
         util.mkdirs((path for key, path in opt['path'].items() if 'pretrained' not in key))
-
+    print(opt['rank'])
     # ----------------------------------------
     # update opt
     # ----------------------------------------
@@ -92,6 +96,12 @@ def main(json_path='options/train_msrresnet_psnr.json'):
         utils_logger.logger_info(logger_name, os.path.join(opt['path']['log'], logger_name+'.log'))
         logger = logging.getLogger(logger_name)
         logger.info(option.dict2str(opt))
+
+
+    # Configure Tensorboard
+    comment='psnr'
+    # expname = comment+datetime.now().strftime("_%b%d_%H-%M-%S")
+    writer = SummaryWriter(log_dir=f'./logsx8/{comment}')
 
     # ----------------------------------------
     # seed
@@ -151,7 +161,7 @@ def main(json_path='options/train_msrresnet_psnr.json'):
     # Step--3 (initialize model)
     # ----------------------------------------
     '''
-
+    breakpoint()
     model = define_Model(opt)
     model.init_train()
     if opt['rank'] == 0:
@@ -164,16 +174,16 @@ def main(json_path='options/train_msrresnet_psnr.json'):
     # ----------------------------------------
     '''
 
-    for epoch in range(1000000):  # keep running
+    for epoch in trange(1000000, desc='epoch'):  # keep running
         if opt['dist']:
-            train_sampler.set_epoch(epoch)
+             train_sampler.set_epoch(epoch)
 
-        for i, train_data in enumerate(train_loader):
-
+        for i, train_data in enumerate(tqdm(train_loader, leave=False, desc='iter')):
+            
             current_step += 1
 
             # -------------------------------
-            # 1) update learning rate
+            # 1) update learning rates
             # -------------------------------
             model.update_learning_rate(current_step)
 
@@ -196,6 +206,7 @@ def main(json_path='options/train_msrresnet_psnr.json'):
                 for k, v in logs.items():  # merge log information into message
                     message += '{:s}: {:.3e} '.format(k, v)
                 logger.info(message)
+                writer.add_scalar('train/G_loss', logs['G_loss'], current_step)
 
             # -------------------------------
             # 5) save model
@@ -232,6 +243,11 @@ def main(json_path='options/train_msrresnet_psnr.json'):
                     # -----------------------
                     save_img_path = os.path.join(img_dir, '{:s}_{:d}.png'.format(img_name, current_step))
                     util.imsave(E_img, save_img_path)
+                    # save generated tensor of recovered image
+                    print(visuals['E'].size())
+                    transform = transforms.CenterCrop(200)
+                    crop = transform(visuals['E'])
+                    writer.add_image(f'train/{img_name}', crop, current_step)
 
                     # -----------------------
                     # calculate PSNR
@@ -246,6 +262,7 @@ def main(json_path='options/train_msrresnet_psnr.json'):
 
                 # testing log
                 logger.info('<epoch:{:3d}, iter:{:8,d}, Average PSNR : {:<.2f}dB\n'.format(epoch, current_step, avg_psnr))
+                writer.add_scalar('train/test_psnr', avg_psnr, current_step)
 
 if __name__ == '__main__':
     main()

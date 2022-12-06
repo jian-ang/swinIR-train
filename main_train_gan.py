@@ -14,10 +14,14 @@ from utils import utils_logger
 from utils import utils_image as util
 from utils import utils_option as option
 from utils.utils_dist import get_dist_info, init_dist
+from utils.writer_display import image_grid
 
 from data.select_dataset import define_Dataset
 from models.select_model import define_Model
 
+from torch.utils.tensorboard import SummaryWriter
+import torchvision.transforms as transforms
+from tqdm import tqdm, trange
 
 '''
 # --------------------------------------------
@@ -99,6 +103,10 @@ def main(json_path='options/train_msrresnet_gan.json'):
         logger = logging.getLogger(logger_name)
         logger.info(option.dict2str(opt))
 
+    # Configure Tensorboard
+    comment='train'
+    writer = SummaryWriter(log_dir=f'./logsx8ganl3/{comment}')
+
     # ----------------------------------------
     # seed
     # ----------------------------------------
@@ -171,7 +179,7 @@ def main(json_path='options/train_msrresnet_gan.json'):
     # ----------------------------------------
     '''
 
-    for epoch in range(1000000):  # keep running
+    for epoch in trange(1000):  # keep running
         if opt['dist']:
             train_sampler.set_epoch(epoch)
 
@@ -203,6 +211,7 @@ def main(json_path='options/train_msrresnet_gan.json'):
                 for k, v in logs.items():  # merge log information into message
                     message += '{:s}: {:.3e} '.format(k, v)
                 logger.info(message)
+                writer.add_scalars('loss', logs, current_step)
 
             # -------------------------------
             # 5) save model
@@ -241,6 +250,12 @@ def main(json_path='options/train_msrresnet_gan.json'):
                     util.imsave(E_img, save_img_path)
 
                     # -----------------------
+                    # add figure to summary writer
+                    # -----------------------
+                    figure = image_grid(visuals['E'], visuals['H'], visuals['L'], scale=border)
+                    writer.add_figure(f'test/{img_name}', figure, current_step)
+
+                    # -----------------------
                     # calculate PSNR
                     # -----------------------
                     current_psnr = util.calculate_psnr(E_img, H_img, border=border)
@@ -253,6 +268,7 @@ def main(json_path='options/train_msrresnet_gan.json'):
 
                 # testing log
                 logger.info('<epoch:{:3d}, iter:{:8,d}, Average PSNR : {:<.2f}dB\n'.format(epoch, current_step, avg_psnr))
+                writer.add_scalar('test/psnr', avg_psnr, current_step)
 
 if __name__ == '__main__':
     main()

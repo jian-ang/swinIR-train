@@ -2,7 +2,6 @@ import sys
 import datetime
 import logging
 
-
 '''
 # --------------------------------------------
 # Kai Zhang (github: https://github.com/cszn)
@@ -23,6 +22,21 @@ def log(*args, **kwargs):
 # --------------------------------------------
 '''
 
+import logging
+import tqdm
+
+class TqdmLoggingHandler(logging.Handler):
+    def __init__(self, level=logging.NOTSET):
+        super().__init__(level)
+
+    def emit(self, record):
+        try:
+            msg = self.format(record)
+            tqdm.tqdm.write(msg)
+            self.flush()
+        except Exception:
+            self.handleError(record) 
+            
 
 def logger_info(logger_name, log_path='default_logger.log'):
     ''' set up logger
@@ -41,7 +55,8 @@ def logger_info(logger_name, log_path='default_logger.log'):
         log.addHandler(fh)
         # print(len(log.handlers))
 
-        sh = logging.StreamHandler()
+        #sh = logging.StreamHandler()
+        sh = TqdmLoggingHandler()
         sh.setFormatter(formatter)
         log.addHandler(sh)
 

@@ -58,7 +58,7 @@ class ModelGAN(ModelBase):
         if self.opt_train['E_decay'] > 0:
             if load_path_E is not None:
                 print('Loading model for E [{:s}] ...'.format(load_path_E))
-                self.load_network(load_path_E, self.netE, strict=self.opt_train['E_param_strict'])
+                self.load_network(load_path_E, self.netE, strict=False)
             else:
                 print('Copying model for E')
                 self.update_E(0)

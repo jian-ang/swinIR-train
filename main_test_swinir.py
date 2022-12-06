@@ -31,6 +31,8 @@ def main():
     args = parser.parse_args()
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    #device = torch.device('cpu')
+    
     # set up model
     if os.path.exists(args.model_path):
         print(f'loading model from {args.model_path}')
@@ -55,6 +57,8 @@ def main():
     test_results['ssim_y'] = []
     test_results['psnr_b'] = []
     psnr, ssim, psnr_y, ssim_y, psnr_b = 0, 0, 0, 0, 0
+    # initialize img_gt
+    img_gt = []
 
     for idx, path in enumerate(sorted(glob.glob(os.path.join(folder, '*')))):
         # read image
@@ -107,6 +111,7 @@ def main():
         else:
             print('Testing {:d} {:20s}'.format(idx, imgname))
 
+    print(test_results['psnr'])
     # summarize psnr/ssim
     if img_gt is not None:
         ave_psnr = sum(test_results['psnr']) / len(test_results['psnr'])
@@ -220,7 +225,7 @@ def get_image_pair(args, path):
     # 001 classical image sr/ 002 lightweight image sr (load lq-gt image pairs)
     if args.task in ['classical_sr', 'lightweight_sr']:
         img_gt = cv2.imread(path, cv2.IMREAD_COLOR).astype(np.float32) / 255.
-        img_lq = cv2.imread(f'{args.folder_lq}/{imgname}x{args.scale}{imgext}', cv2.IMREAD_COLOR).astype(
+        img_lq = cv2.imread(f'{args.folder_lq}/{imgname}{imgext}', cv2.IMREAD_COLOR).astype(
             np.float32) / 255.
 
     # 003 real-world image sr (load lq image only)

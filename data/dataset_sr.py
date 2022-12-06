@@ -79,11 +79,17 @@ class DatasetSR(data.Dataset):
             rnd_w = random.randint(0, max(0, W - self.L_size))
             img_L = img_L[rnd_h:rnd_h + self.L_size, rnd_w:rnd_w + self.L_size, :]
 
+            assert img_L.shape[0] == self.L_size
+            assert img_L.shape[1] == self.L_size
+
             # --------------------------------
             # crop corresponding H patch
             # --------------------------------
             rnd_h_H, rnd_w_H = int(rnd_h * self.sf), int(rnd_w * self.sf)
             img_H = img_H[rnd_h_H:rnd_h_H + self.patch_size, rnd_w_H:rnd_w_H + self.patch_size, :]
+
+            assert img_H.shape[0] == self.patch_size
+            assert img_H.shape[1] == self.patch_size 
 
             # --------------------------------
             # augmentation - flip and/or rotate

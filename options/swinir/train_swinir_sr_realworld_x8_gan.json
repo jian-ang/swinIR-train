@@ -1,12 +1,13 @@
 {
-  "task": "swinir_sr_realworld_x4_gan_l1" // real-world image sr. root/task/images|models|options
+  "task": "swinir_sr_realworld_x8_gan_l3" // real-world image sr. root/task/images|models|options
   ,
   "model": "gan" // "gan"
   ,
   "gpu_ids": [
+    0,
     1
   ],
-  "scale": 4 // broadcast to "datasets"
+  "scale": 8 // broadcast to "datasets"
   ,
   "n_channels": 3 // broadcast to "datasets", 1 for grayscale, 3 for color
   ,
@@ -27,7 +28,7 @@
       ,
       "dataroot_H": "trainsets/WIN/train-HR" // path of H training dataset. DIV2K (800 training images) + Flickr2K (2650 images) + + OST (10324 images)
       ,
-      "dataroot_L": "trainsets/WIN/train-LRx4" // path of L training dataset
+      "dataroot_L": "trainsets/WIN/train-LRx8" // path of L training dataset
       ,
       "degradation_type": "bsrgan" // "bsrgan" | "bsrgan_plus"
       ,
@@ -35,11 +36,11 @@
       ,
       "shuffle_prob": 0.1 // 
       ,
-      "lq_patchsize": 64,
+      "lq_patchsize": 32,
       "use_sharp": true,
       "dataloader_shuffle": true,
-      "dataloader_num_workers": 8,
-      "dataloader_batch_size": 8 // batch size 1 | 16 | 32 | 48 | 64 | 128. Total batch size =4x8=32 in SwinIR
+      "dataloader_num_workers": 16,
+      "dataloader_batch_size": 32 // batch size 1 | 16 | 32 | 48 | 64 | 128. Total batch size =4x8=32 in SwinIR
     },
     "test": {
       "name": "test_dataset" // just name
@@ -51,16 +52,16 @@
       ,
       "shuffle_prob": 0.1 // 
       ,
-      "lq_patchsize": 64,
+      "lq_patchsize": 32,
       "use_sharp": false,
       "dataroot_H": "testsets/WIN/test-HR-100" // path of H testing dataset
       ,
-      "dataroot_L": "testsets/WIN/test-LRx4-100" // path of L testing dataset
+      "dataroot_L": "testsets/WIN/test-LRx8-100" // path of L testing dataset
     }
   },
   "netG": {
     "net_type": "swinir",
-    "upscale": 4,
+    "upscale": 8,
     "in_chans": 3,
     "img_size": 64,
     "window_size": 8,
@@ -166,9 +167,9 @@
     "G_param_strict": true,
     "D_param_strict": true,
     "E_param_strict": true,
-    "checkpoint_test": 500 // skip testing
+    "checkpoint_test": 5000 // skip testing
     ,
-    "checkpoint_save": 1000,
+    "checkpoint_save": 5000,
     "checkpoint_print": 200
   }
 }

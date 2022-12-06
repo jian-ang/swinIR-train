@@ -614,6 +614,27 @@ class UpsampleOneStep(nn.Sequential):
         flops = H * W * self.num_feat * 3 * 9
         return flops
 
+class UpsampleRealWorldLayer(nn.Module):
+    def __init__(self, num_feat, num_layers, kernel_size) -> None:
+        super().__init__()
+        m = []
+        for _ in range(num_layers):
+            m.append(nn.Conv2d(num_feat, num_feat, kernel_size, 1, (kernel_size-1)//2))
+            m.append(nn.LeakyReLU(negative_slope=0.2, inplace=True))
+        self.layers = nn.Sequential(*m)
+    
+    def forward(self, x):
+        x = torch.nn.functional.interpolate(x, scale_factor=2, mode='bilinear')
+        x = self.layers(x)
+        return x
+
+class UpsampleRealWorld(nn.Sequential):
+    def __init__(self, num_feat, layers_per_scale, kernel_size, scale):
+        m = [UpsampleRealWorldLayer(num_feat, layers_per_scale, kernel_size) for _ in range(int(math.log(scale, 2)))]
+        for _ in range(layers_per_scale):
+            m.append(nn.Conv2d(num_feat, num_feat, kernel_size, 1, (kernel_size-1)//2))
+            m.append(nn.LeakyReLU(negative_slope=0.2, inplace=True))
+        super().__init__(*m)
 
 class SwinIR(nn.Module):
     r""" SwinIR
@@ -752,11 +773,16 @@ class SwinIR(nn.Module):
             assert self.upscale == 4, 'only support x4 now.'
             self.conv_before_upsample = nn.Sequential(nn.Conv2d(embed_dim, num_feat, 3, 1, 1),
                                                       nn.LeakyReLU(inplace=True))
-            self.conv_up1 = nn.Conv2d(num_feat, num_feat, 3, 1, 1)
-            self.conv_up2 = nn.Conv2d(num_feat, num_feat, 3, 1, 1)
-            self.conv_hr = nn.Conv2d(num_feat, num_feat, 3, 1, 1)
-            self.conv_last = nn.Conv2d(num_feat, num_out_ch, 3, 1, 1)
+            self.conv_up1 = nn.Conv2d(num_feat, num_feat, 5, 1, 1)
+            self.conv_up2 = nn.Conv2d(num_feat, num_feat, 5, 1, 1)
+            self.conv_hr = nn.Conv2d(num_feat, num_feat, 5, 1, 1)
+            self.conv_last = nn.Conv2d(num_feat, num_out_ch, 5, 1, 1)
             self.lrelu = nn.LeakyReLU(negative_slope=0.2, inplace=True)
+        elif self.upsampler == 'realworld':
+            self.conv_before_upsample = nn.Sequential(nn.Conv2d(embed_dim, num_feat, 3, 1, 1),
+                                                      nn.LeakyReLU(inplace=True))
+            self.upsample = UpsampleRealWorld(num_feat, 3, 3, upscale)
+            self.conv_last = nn.Conv2d(num_feat, num_out_ch, 3, 1, 1)
         else:
             # for image denoising and JPEG compression artifact reduction
             self.conv_last = nn.Conv2d(embed_dim, num_out_ch, 3, 1, 1)
@@ -825,9 +851,15 @@ class SwinIR(nn.Module):
             x = self.conv_first(x)
             x = self.conv_after_body(self.forward_features(x)) + x
             x = self.conv_before_upsample(x)
-            x = self.lrelu(self.conv_up1(torch.nn.functional.interpolate(x, scale_factor=2, mode='nearest')))
-            x = self.lrelu(self.conv_up2(torch.nn.functional.interpolate(x, scale_factor=2, mode='nearest')))
+            x = self.lrelu(self.conv_up1(torch.nn.functional.interpolate(x, scale_factor=2, mode='bilinear')))
+            x = self.lrelu(self.conv_up2(torch.nn.functional.interpolate(x, scale_factor=2, mode='bilinear')))
             x = self.conv_last(self.lrelu(self.conv_hr(x)))
+        elif self.upsampler == 'realworld':
+            x = self.conv_first(x)
+            x = self.conv_after_body(self.forward_features(x)) + x
+            x = self.conv_before_upsample(x)
+            x = self.upsample(x)
+            x = self.conv_last(x)
         else:
             # for image denoising and JPEG compression artifact reduction
             x_first = self.conv_first(x)
